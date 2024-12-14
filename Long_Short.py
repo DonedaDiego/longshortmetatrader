@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-
 from statsmodels.tsa.stattools import adfuller, coint
 from statsmodels.regression.linear_model import OLS
 from statsmodels.regression.rolling import RollingOLS
