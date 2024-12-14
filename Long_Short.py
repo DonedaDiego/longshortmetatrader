@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
+
 from statsmodels.tsa.stattools import adfuller, coint
 from statsmodels.regression.linear_model import OLS
 from statsmodels.regression.rolling import RollingOLS
@@ -8,7 +9,7 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import requests
 
-API_URL = "https://0586-2001-1284-f514-4e92-dda9-fc26-6bc2-a8dd.ngrok-free.app"
+API_URL = "https://b6a7-2001-1284-f514-4e92-dda9-fc26-6bc2-a8dd.ngrok-free.app"
 
 
 st.set_page_config(page_title="Long&Short - Learn Ai & Machine Learning Geminii", layout="wide")
