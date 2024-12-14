@@ -7,7 +7,6 @@ from statsmodels.regression.rolling import RollingOLS
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import requests
-
 import sys
 import subprocess
 
