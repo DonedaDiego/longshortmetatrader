@@ -1,5 +1,4 @@
 import streamlit as st
-import MetaTrader5 as mt5  # Substituindo yfinance
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import adfuller, coint
@@ -7,13 +6,10 @@ from statsmodels.regression.linear_model import OLS
 from statsmodels.regression.rolling import RollingOLS
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
+import requests
 
-# Inicialização do MT5
-def initialize_mt5():
-    if not mt5.initialize():
-        st.error("Falha ao inicializar o MetaTrader5")
-        return False
-    return True
+API_URL = "https://0586-2001-1284-f514-4e92-dda9-fc26-6bc2-a8dd.ngrok-free.app"
+
 
 st.set_page_config(page_title="Long&Short - Learn Ai & Machine Learning Geminii", layout="wide")
 st.sidebar.image(r"C:\Users\usuario\Desktop\Vscode\longshortmetatrader\assets\Logo.png", width=100)
@@ -32,53 +28,30 @@ def obter_top_50_acoes_brasileiras():
 @st.cache_data(ttl=24*3600)
 def obter_dados(tickers, data_inicio, data_fim):
     try:
-        if not initialize_mt5():
+        # Converte as datas para strings
+        start_date = data_inicio.strftime("%Y-%m-%d")
+        end_date = data_fim.strftime("%Y-%m-%d")
+        
+        # Faz a requisição ao backend para obter os dados históricos
+        response = requests.get(
+            f"{API_URL}/historical",
+            params={"tickers": ",".join(tickers), "start_date": start_date, "end_date": end_date}
+        )
+        
+        # Verifica se a resposta foi bem-sucedida
+        if response.status_code == 200:
+            data = response.json()
+            # Converte o JSON retornado pela API em um DataFrame
+            dados = pd.DataFrame(data)
+            dados['time'] = pd.to_datetime(dados['time'])
+            return dados.set_index('time')
+        else:
+            st.error(f"Erro ao obter dados: {response.text}")
             return pd.DataFrame()
-            
-        # Create empty DataFrame with MultiIndex columns
-        tuples = []
-        for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
-            for ticker in tickers:
-                tuples.append((col, ticker))
-        columns = pd.MultiIndex.from_tuples(tuples)
-        dados_final = pd.DataFrame(columns=columns)
-        
-        start_ts = int(data_inicio.timestamp())
-        end_ts = int(data_fim.timestamp())
-        
-        all_dates = set()
-        ticker_data = {}
-        
-        # Collect data and dates for all tickers
-        for ticker in tickers:
-            rates = mt5.copy_rates_range(ticker, mt5.TIMEFRAME_D1, start_ts, end_ts)
-            if rates is not None and len(rates) > 0:
-                df = pd.DataFrame(rates)
-                df['time'] = pd.to_datetime(df['time'], unit='s')
-                df.set_index('time', inplace=True)
-                ticker_data[ticker] = df
-                all_dates.update(df.index)
-        
-        # Create DataFrame with all dates
-        dados_final = pd.DataFrame(index=sorted(all_dates), columns=columns)
-        
-        # Fill data for each ticker
-        for ticker, df in ticker_data.items():
-            dados_final[('Open', ticker)] = df['open']
-            dados_final[('High', ticker)] = df['high']
-            dados_final[('Low', ticker)] = df['low']
-            dados_final[('Close', ticker)] = df['close']
-            dados_final[('Volume', ticker)] = df['real_volume']
-        
-        dados_final = dados_final.fillna(method='ffill').fillna(method='bfill')
-        
-        mt5.shutdown()
-        return dados_final
-        
     except Exception as e:
-        st.error(f"Erro ao obter dados: {str(e)}")
-        mt5.shutdown()
+        st.error(f"Erro ao conectar à API: {str(e)}")
         return pd.DataFrame()
+
 
 def calcular_meia_vida(spread):
     spread_lag = spread.shift(1)

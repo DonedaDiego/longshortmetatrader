@@ -1,6 +1,6 @@
 streamlit
-MetaTrader5
 pandas
 numpy
 statsmodels
 plotly
+requests
