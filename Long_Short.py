@@ -20,10 +20,7 @@ subprocess.run([sys.executable, "-m", "pip", "list"])
 # Mostra o sys.path para verificar os diretórios acessíveis
 print("PYTHONPATH:", sys.path)
 
-
-
 API_URL = "https://b6a7-2001-1284-f514-4e92-dda9-fc26-6bc2-a8dd.ngrok-free.app"
-
 
 st.set_page_config(page_title="Long&Short - Learn Ai & Machine Learning Geminii", layout="wide")
 st.sidebar.image(r"C:\Users\usuario\Desktop\Vscode\longshortmetatrader\assets\Logo.png", width=100)
