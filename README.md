@@ -1,0 +1,2 @@
+# longshortmetatrader
+ projeto meta local
