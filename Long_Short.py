@@ -8,6 +8,20 @@ import plotly.graph_objects as go
 from datetime import datetime, timedelta
 import requests
 
+import sys
+import subprocess
+
+# Mostra o caminho do Python
+print(f"Python executable: {sys.executable}")
+
+# Lista os pacotes instalados
+subprocess.run([sys.executable, "-m", "pip", "list"])
+
+# Mostra o sys.path para verificar os diretórios acessíveis
+print("PYTHONPATH:", sys.path)
+
+
+
 API_URL = "https://b6a7-2001-1284-f514-4e92-dda9-fc26-6bc2-a8dd.ngrok-free.app"
 
 
@@ -28,30 +42,36 @@ def obter_top_50_acoes_brasileiras():
 @st.cache_data(ttl=24*3600)
 def obter_dados(tickers, data_inicio, data_fim):
     try:
-        # Converte as datas para strings
-        start_date = data_inicio.strftime("%Y-%m-%d")
-        end_date = data_fim.strftime("%Y-%m-%d")
-        
-        # Faz a requisição ao backend para obter os dados históricos
         response = requests.get(
             f"{API_URL}/historical",
-            params={"tickers": ",".join(tickers), "start_date": start_date, "end_date": end_date}
+            params={
+                "tickers": ",".join(tickers), 
+                "start_date": data_inicio.strftime("%Y-%m-%d"), 
+                "end_date": data_fim.strftime("%Y-%m-%d")
+            }
         )
-        
-        # Verifica se a resposta foi bem-sucedida
+
         if response.status_code == 200:
             data = response.json()
-            # Converte o JSON retornado pela API em um DataFrame
-            dados = pd.DataFrame(data)
-            dados['time'] = pd.to_datetime(dados['time'])
-            return dados.set_index('time')
-        else:
-            st.error(f"Erro ao obter dados: {response.text}")
-            return pd.DataFrame()
+            df = pd.DataFrame(data)
+            
+            # Converte para o formato MultiIndex
+            df['time'] = pd.to_datetime(df['time'])
+            df_pivot = pd.pivot_table(
+                df,
+                values=['Open', 'High', 'Low', 'Close', 'Volume'],
+                index='time',
+                columns='symbol'
+            )
+            
+            return df_pivot
+
+        st.error(f"Erro ao obter dados: {response.text}")
+        return pd.DataFrame()
+        
     except Exception as e:
         st.error(f"Erro ao conectar à API: {str(e)}")
         return pd.DataFrame()
-
 
 def calcular_meia_vida(spread):
     spread_lag = spread.shift(1)
