@@ -4,3 +4,4 @@ numpy
 statsmodels
 plotly
 requests
+MetaTrader5
