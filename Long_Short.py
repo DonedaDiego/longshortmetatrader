@@ -1,6 +1,5 @@
 #principal
 import streamlit as st
-import MetaTrader5 as mt5 
 import pandas as pd
 import numpy as np
 from statsmodels.tsa.stattools import adfuller, coint

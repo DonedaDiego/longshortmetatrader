@@ -4,4 +4,4 @@ numpy
 statsmodels
 plotly
 requests
-MetaTrader5
+st-aggrid
