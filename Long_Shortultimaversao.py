@@ -9,32 +9,29 @@ from statsmodels.regression.rolling import RollingOLS
 import plotly.graph_objects as go
 from datetime import datetime, timedelta
 from st_aggrid import AgGrid, GridOptionsBuilder
-import requests
-
-BASE_URL = "https://api.cumecasadeanalises.com.br"
+import csv
 
 # Inicialização do MT5
-def inicializar_mt5():
-    try:
-        resposta = requests.get(f'{BASE_URL}/initialize')
-        return resposta.json().get('success', False)
-    except:
-        st.error("Não foi possível conectar com a API do MetaTrader5")
+def initialize_mt5():
+    if not mt5.initialize():
+        st.error("Falha ao inicializar o MetaTrader5")
         return False
+    return True
 
 st.set_page_config(page_title="Long&Short - Por Cointegração", layout="wide",page_icon="📊")
 #st.sidebar.image(r"C:\Users\usuario\Desktop\Vscode\longshortmetatrader\assets\Logo.png", width=100)
 
 @st.cache_data(ttl=24*3600)
 def obter_top_50_acoes_brasileiras():
-    try:
-        resposta = requests.get(f'{BASE_URL}/top50')
-        if resposta.status_code == 200:
-            return resposta.json()
-        return []
-    except:
-        st.error("Não foi possível obter a lista de ações")
-        return []
+    return [acao for acao in [
+      "ABEV3", "ALOS3", "ALUP3", "ALUP4", "AURE3", "AZZA3", "B3SA3", "BBAS3", "BBDC3", "BBDC4", "BBSE3", "BPAC11",  
+      "BPAN4", "BRAP3", "BRAP4", "BRAV3", "BRFS3",  "CCRO3", "CMIG3", "CMIG4", "CMIN3", 
+      "CPFE3", "CPLE3", "CPLE5", "CPLE6", "CRFB3", "CSAN3", "CSMG3", "CSNA3", "CXSE3", "CYRE3",  "ELET3", "ELET6", 
+      "EGIE3", "EMBR3", "ENEV3", "ENGI11", "ENGI3", "ENGI4", "EQTL3", "GGBR3", "GGBR4", "GOAU4", "HAPV3", "HYPE3", 
+      "ITSA3", "ITSA4", "ITUB3", "ITUB4", "JBSS3", "KLBN11", "KLBN3", "KLBN4", "LREN3", "MDIA3",  "NEOE3", 
+      "NTCO3", "PETR3", "PETR4", "PRIO3", "PSSA3", "RAIL3", "RAIZ4", "RDOR3", "RENT3", "SANB11", "SANB4", "SBSP3", "SUZB3", 
+      "VBBR3", "VALE3", "VIVT3", "WEGE3", "UGPA3"
+    ]]
 
 SETORES = {
    "ABEV3": "Bebidas",
@@ -116,25 +113,54 @@ SETORES = {
 @st.cache_data(ttl=24*3600)
 def obter_dados(tickers, data_inicio, data_fim):
     try:
-        dados_requisicao = {
-            'tickers': tickers,
-            'start_date': data_inicio.strftime('%Y-%m-%d'),
-            'end_date': data_fim.strftime('%Y-%m-%d')
-        }
+        if not initialize_mt5():
+            return pd.DataFrame()
+            
+        # Create empty DataFrame with MultiIndex columns
+        tuples = []
+        for col in ['Open', 'High', 'Low', 'Close', 'Volume']:
+            for ticker in tickers:
+                tuples.append((col, ticker))
+        columns = pd.MultiIndex.from_tuples(tuples)
+        dados_final = pd.DataFrame(columns=columns)
         
-        resposta = requests.post(
-            f'{BASE_URL}/historical', 
-            json=dados_requisicao
-        )
+        start_ts = int(data_inicio.timestamp())
+        end_ts = int(data_fim.timestamp())
         
-        if resposta.status_code == 200:
-            dados = resposta.json()
-            return pd.read_json(dados['data'])
-        return pd.DataFrame()
+        all_dates = set()
+        ticker_data = {}
+        
+        # Collect data and dates for all tickers
+        for ticker in tickers:
+            rates = mt5.copy_rates_range(ticker, mt5.TIMEFRAME_D1, start_ts, end_ts)
+            if rates is not None and len(rates) > 0:
+                df = pd.DataFrame(rates)
+                df['time'] = pd.to_datetime(df['time'], unit='s')
+                df.set_index('time', inplace=True)
+                ticker_data[ticker] = df
+                all_dates.update(df.index)
+        
+        # Create DataFrame with all dates
+        dados_final = pd.DataFrame(index=sorted(all_dates), columns=columns)
+        
+        # Fill data for each ticker
+        for ticker, df in ticker_data.items():
+            dados_final[('Open', ticker)] = df['open']
+            dados_final[('High', ticker)] = df['high']
+            dados_final[('Low', ticker)] = df['low']
+            dados_final[('Close', ticker)] = df['close']
+            dados_final[('Volume', ticker)] = df['real_volume']
+        
+        dados_final = dados_final.ffill().bfill().infer_objects(copy=False)
+        
+        mt5.shutdown()
+        return dados_final
+        
     except Exception as e:
-        st.error(f"Erro ao buscar dados da API: {str(e)}")
+        st.error(f"Erro ao obter dados: {str(e)}")
+        mt5.shutdown()
         return pd.DataFrame()
-        
+
 def calcular_meia_vida(spread):
     spread_lag = spread.shift(1)
     spread_diff = spread.diff()
